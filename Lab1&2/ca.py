@@ -1,5 +1,4 @@
 import numpy as np
-import os
 
 from pyics import Model
 
@@ -32,6 +31,7 @@ class CASim(Model):
         self.make_param('height', 50)
         self.make_param('rule', 30, setter=self.setter_rule)
         self.make_param('initial_random', True)
+        self.make_param('labda', 0)
 
     def setter_rule(self, val):
         """Setter for the rule parameter, clipping its value between 0 and the
@@ -40,6 +40,10 @@ class CASim(Model):
         max_rule_number = self.k ** rule_set_size
         return max(0, min(val, max_rule_number - 1))
 
+    def setter_labda(self, val):
+        return max(0, min(val, 1))
+
+
     def build_rule_set(self):
         """Sets the rule set for the current rule.
         A rule set is a list with the new state for every old configuration.
@@ -47,14 +51,7 @@ class CASim(Model):
         For example, for rule=34, k=3, r=1 this function should set rule_set to
         [0, ..., 0, 1, 0, 2, 1] (length 27). This means that for example
         [2, 2, 2] -> 0 and [0, 0, 1] -> 2."""
-        base_k_number = decimal_to_base_k(self.rule, self.k)
-        self.rule_set = np.zeros(self.k ** (2 * self.r + 1))
-        index = self.k ** (2 * self.r + 1) - len(base_k_number)
-        for elem in base_k_number:
-            self.rule_set[index] = elem
-            index += 1
-        self.rule_set = [int(x) for x in self.rule_set]
-        return self.rule_set
+
 
     def check_rule(self, inp):
         """Returns the new state based on the input states.
@@ -154,4 +151,3 @@ if __name__ == '__main__':
         csv_base_filename='data',
         measure_interval=0,
     )
-    os.system("python3 plot.py")
