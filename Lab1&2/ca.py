@@ -29,9 +29,9 @@ class CASim(Model):
         self.make_param('k', 2)
         self.make_param('width', 50)
         self.make_param('height', 50)
-        self.make_param('rule', 30, setter=self.setter_rule)
+        # self.make_param('rule', 30, setter=self.setter_rule)
         self.make_param('initial_random', True)
-        self.make_param('labda', 0)
+        self.make_param('labda', 0.0)
 
     def setter_rule(self, val):
         """Setter for the rule parameter, clipping its value between 0 and the
@@ -43,7 +43,6 @@ class CASim(Model):
     def setter_labda(self, val):
         return max(0, min(val, 1))
 
-
     def build_rule_set(self):
         """Sets the rule set for the current rule.
         A rule set is a list with the new state for every old configuration.
@@ -51,7 +50,15 @@ class CASim(Model):
         For example, for rule=34, k=3, r=1 this function should set rule_set to
         [0, ..., 0, 1, 0, 2, 1] (length 27). This means that for example
         [2, 2, 2] -> 0 and [0, 0, 1] -> 2."""
+        self.rule_set = np.zeros(self.k ** (2 * self.r + 1))
+        nonvisited = [i for i in range(len(self.rule_set))]
 
+        for _ in range(int(len(self.rule_set) * self.labda)):
+            rand_idx = np.random.choice(nonvisited)
+            self.rule_set[rand_idx] = np.random.randint(1, self.k)
+            nonvisited.remove(rand_idx)
+
+        return self.rule_set
 
     def check_rule(self, inp):
         """Returns the new state based on the input states.
@@ -108,9 +115,12 @@ class CASim(Model):
     def step(self):
         """Performs a single step of the simulation by advancing time (and thus
         row) and applying the rule to determine the state of the cells."""
+        self.calculated = False
         self.t += 1
         if self.t >= self.height:
             return True
+
+        number_dict = {x: 0 for x in range(self.k ** (2 * self.r + 1))}
 
         for patch in range(self.width):
             # We want the items r to the left and to the right of this patch,
@@ -123,16 +133,39 @@ class CASim(Model):
             ]
             values = self.config[self.t - 1, indices]
             self.config[self.t, patch] = self.check_rule(values)
+            string = ''
+            print(f'values: {values}')
+            for elem in values:
+                string += str(int(elem))
+            print(f'de string: {string}')
+            num = int(string, self.k)
+            print(f'final num: {num}')
+            number_dict[num] += 1
 
         for i in range(self.t):
-            if np.all(self.config[i] == self.config[self.t]):
-                self.cycle_length = self.t - i
-                return True
+            if (
+                np.all(self.config[i] == self.config[self.t])
+                and self.calculated != True
+            ):
+                self.transient_length = i
+                self.calculated = True
+
+        self.shannonlist = []
+        shannonsum = -sum(
+            number_dict[x] / self.width * np.log2(number_dict[x] / self.width)
+            for x in number_dict
+            if number_dict[x] != 0
+        )
+        self.shannonlist.append(shannonsum)
+
+        if self.t == self.height - 1:
+            self.entropy = np.average(self.shannonlist)
 
 
 if __name__ == '__main__':
     sim = CASim()
     # from pyics import GUI
+
     # cx = GUI(sim)
     # cx.start()
     from pyics import paramsweep
@@ -140,14 +173,16 @@ if __name__ == '__main__':
     sim.reset()
     paramsweep(
         sim,
-        1,
+        10,
         {
-            'rule': [j for j in range(256)],
-            'width': [i for i in range(1, 11)],
-            'height': 10000,
+            # 'rule': 0,
+            'width': 40,
+            'height': 1000,
+            'k': [2, 3],
+            'r': [1, 2],
+            'labda': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         },
-        ['cycle_length'],
-        max_iter=0,
+        ['transient_length', 'entropy'],
         csv_base_filename='data',
         measure_interval=0,
     )
