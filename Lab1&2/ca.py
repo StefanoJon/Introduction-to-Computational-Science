@@ -2,20 +2,6 @@ import numpy as np
 
 from pyics import Model
 
-
-def decimal_to_base_k(n, k):
-    """Converts a given decimal (i.e. base-10 integer) to a list containing the
-    base-k equivalant.
-
-    For example, for n=34 and k=3 this function should return [1, 0, 2, 1]."""
-    result = []
-    while n != 0:
-        remainder = n % k
-        n = n // k
-        result.insert(0, remainder)
-    return result
-
-
 class CASim(Model):
     def __init__(self):
         Model.__init__(self)
@@ -23,13 +9,12 @@ class CASim(Model):
         self.t = 0
         self.rule_set = []
         self.config = None
-        self.cycle_length = 0
+        self.transient_length = -1
 
         self.make_param('r', 1)
         self.make_param('k', 2)
         self.make_param('width', 50)
         self.make_param('height', 50)
-        # self.make_param('rule', 30, setter=self.setter_rule)
         self.make_param('initial_random', True)
         self.make_param('labda', 0.0)
 
@@ -92,6 +77,9 @@ class CASim(Model):
         self.config = np.zeros([self.height, self.width])
         self.config[0, :] = self.setup_initial_row()
         self.build_rule_set()
+        self.transient_length = -1
+        self.shannonlist = []
+        self.entropy = None
 
     def draw(self):
         """Draws the current state of the grid."""
@@ -118,6 +106,8 @@ class CASim(Model):
         self.calculated = False
         self.t += 1
         if self.t >= self.height:
+            self.entropy = np.mean(self.shannonlist)
+            print(int((self.r-1)*22+(self.k-2)*11+self.labda*10))
             return True
 
         number_dict = {x: 0 for x in range(self.k ** (2 * self.r + 1))}
@@ -134,12 +124,9 @@ class CASim(Model):
             values = self.config[self.t - 1, indices]
             self.config[self.t, patch] = self.check_rule(values)
             string = ''
-            print(f'values: {values}')
             for elem in values:
                 string += str(int(elem))
-            print(f'de string: {string}')
             num = int(string, self.k)
-            print(f'final num: {num}')
             number_dict[num] += 1
 
         for i in range(self.t):
@@ -150,7 +137,7 @@ class CASim(Model):
                 self.transient_length = i
                 self.calculated = True
 
-        self.shannonlist = []
+        # self.shannonlist = []
         shannonsum = -sum(
             number_dict[x] / self.width * np.log2(number_dict[x] / self.width)
             for x in number_dict
@@ -158,8 +145,6 @@ class CASim(Model):
         )
         self.shannonlist.append(shannonsum)
 
-        if self.t == self.height - 1:
-            self.entropy = np.average(self.shannonlist)
 
 
 if __name__ == '__main__':
@@ -175,12 +160,11 @@ if __name__ == '__main__':
         sim,
         10,
         {
-            # 'rule': 0,
             'width': 40,
             'height': 1000,
             'k': [2, 3],
             'r': [1, 2],
-            'labda': [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+            'labda': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         },
         ['transient_length', 'entropy'],
         csv_base_filename='data',
