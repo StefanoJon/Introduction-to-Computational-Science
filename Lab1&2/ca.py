@@ -2,6 +2,7 @@ import numpy as np
 
 from pyics import Model
 
+
 class CASim(Model):
     def __init__(self):
         Model.__init__(self)
@@ -11,19 +12,12 @@ class CASim(Model):
         self.config = None
         self.transient_length = -1
 
-        self.make_param('r', 1)
-        self.make_param('k', 2)
-        self.make_param('width', 50)
-        self.make_param('height', 50)
-        self.make_param('initial_random', True)
-        self.make_param('labda', 0.0)
-
-    def setter_rule(self, val):
-        """Setter for the rule parameter, clipping its value between 0 and the
-        maximum possible rule number."""
-        rule_set_size = self.k ** (2 * self.r + 1)
-        max_rule_number = self.k ** rule_set_size
-        return max(0, min(val, max_rule_number - 1))
+        self.make_param("r", 1)
+        self.make_param("k", 2)
+        self.make_param("width", 50)
+        self.make_param("height", 50)
+        self.make_param("initial_random", True)
+        self.make_param("labda", 0.0)
 
     def setter_labda(self, val):
         return max(0, min(val, 1))
@@ -51,7 +45,7 @@ class CASim(Model):
         The input state will be an array of 2r+1 items between 0 and k, the
         neighbourhood which the state of the new cell depends on."""
         length = len(self.rule_set) - 1
-        result = ''
+        result = ""
         for elem in inp:
             result += str(int(elem))
         result = int(result, self.k)
@@ -92,13 +86,13 @@ class CASim(Model):
             plt.gca().invert_yaxis()
         plt.imshow(
             self.config,
-            interpolation='none',
+            interpolation="none",
             vmin=0,
             vmax=self.k - 1,
             cmap=matplotlib.cm.binary,
         )
-        plt.axis('image')
-        plt.title('t = %d' % self.t)
+        plt.axis("image")
+        plt.title("t = %d" % self.t)
 
     def step(self):
         """Performs a single step of the simulation by advancing time (and thus
@@ -107,7 +101,6 @@ class CASim(Model):
         self.t += 1
         if self.t >= self.height:
             self.entropy = np.mean(self.shannonlist)
-            print(int((self.r-1)*22+(self.k-2)*11+self.labda*10))
             return True
 
         number_dict = {x: 0 for x in range(self.k ** (2 * self.r + 1))}
@@ -118,12 +111,11 @@ class CASim(Model):
             # Since slices do not support this, we create an array with the
             # indices we want and use that to index our grid.
             indices = [
-                i % self.width
-                for i in range(patch - self.r, patch + self.r + 1)
+                i % self.width for i in range(patch - self.r, patch + self.r + 1)
             ]
             values = self.config[self.t - 1, indices]
             self.config[self.t, patch] = self.check_rule(values)
-            string = ''
+            string = ""
             for elem in values:
                 string += str(int(elem))
             num = int(string, self.k)
@@ -137,7 +129,6 @@ class CASim(Model):
                 self.transient_length = i
                 self.calculated = True
 
-        # self.shannonlist = []
         shannonsum = -sum(
             number_dict[x] / self.width * np.log2(number_dict[x] / self.width)
             for x in number_dict
@@ -146,27 +137,26 @@ class CASim(Model):
         self.shannonlist.append(shannonsum)
 
 
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     sim = CASim()
     # from pyics import GUI
+    from pyics import paramsweep
 
     # cx = GUI(sim)
     # cx.start()
-    from pyics import paramsweep
 
     sim.reset()
     paramsweep(
         sim,
         10,
         {
-            'width': 40,
-            'height': 1000,
-            'k': [2, 3],
-            'r': [1, 2],
-            'labda': [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
+            "width": 40,
+            "height": 1000,
+            "k": [2, 3],
+            "r": [1, 2],
+            "labda": [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0],
         },
-        ['transient_length', 'entropy'],
-        csv_base_filename='data',
+        ["transient_length", "entropy"],
+        csv_base_filename="data",
         measure_interval=0,
     )
